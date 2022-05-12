@@ -1,0 +1,19 @@
+{
+  "name": "wmc-contracts",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.6.0"
+  },
+  "devDependencies": {
+    "@truffle/hdwallet-provider": "^2.0.8",
+    "dotenv": "^16.0.1",
+    "ethereum-waffle": "^3.4.4",
+    "ganache-cli": "^6.12.2",
+    "mkdirp": "^1.0.4",
+    "rimraf": "^3.0.2",
+    "truffle": "^5.5.13",
+    "truffle-plugin-verify": "^0.5.25"
+  }
+}

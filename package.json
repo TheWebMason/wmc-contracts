@@ -1,8 +1,39 @@
 {
-  "name": "wmc-contracts",
+  "name": "@webmason/wmc-contracts",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "description": "WebMasonCoin (WMC)",
   "license": "MIT",
+  "author": {
+    "name": "WebMason.io",
+    "email": "support@webmason.io",
+    "url": "https://webmason.io/"
+  },
+  "scripts": {
+    "clean": "rimraf ./build/ && mkdirp ./build/ && rimraf ./flatten/ && mkdirp ./flatten/",
+    "precompile": "yarn clean",
+    "compile": "truffle compile",
+    "postcompile": "yarn run flatten",
+    "predeploy": "yarn run compile",
+    "deploy": "truffle migrations --network",
+    "verify": "truffle run verify --network",
+    "test": "truffle test",
+    "flatten": "waffle flatten",
+    "ganache": "node ./scripts/ganache-cli.js"
+  },
+  "homepage": "https://github.com/thewebmason/wmc-contracts#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thewebmason/wmc-contracts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/thewebmason/wmc-contracts/issues",
+    "email": "support@webmason.io"
+  },
+  "files": [
+    "contracts",
+    "build"
+  ],
   "dependencies": {
     "@openzeppelin/contracts": "^4.6.0"
   },

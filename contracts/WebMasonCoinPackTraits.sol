@@ -5,7 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @custom:security-contact support@webmason.io
 contract WebMasonCoinPackTraits is Ownable {
-    constructor(address token_) {
-        //
+    address public immutable NFT;
+    address public immutable TOKEN;
+
+    constructor(address nft_, address token_) {
+        NFT = nft_;
+        TOKEN = token_;
     }
 }

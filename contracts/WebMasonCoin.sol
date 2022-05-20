@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
@@ -38,7 +38,7 @@ contract WebMasonCoin is ERC20, ERC20Permit, ERC20VotesComp, Recoverable {
     function multiTransfer(
         address[] memory recipients,
         uint256[] memory amounts
-    ) public {
+    ) external {
         require(
             recipients.length == amounts.length,
             "ERC20: multiTransfer mismatch"
@@ -62,13 +62,15 @@ contract WebMasonCoin is ERC20, ERC20Permit, ERC20VotesComp, Recoverable {
     }
 
     function airdrop(address[] memory recipients, uint256[] memory amounts)
-        public
+        external
         onlyAirdropper
     {
         require(recipients.length == amounts.length, "ERC20: airdrop mismatch");
         for (uint256 i = 0; i < recipients.length; i++) {
+            vesting[recipients[i]].amount =
+                lockedOf(recipients[i]) +
+                amounts[i];
             vesting[recipients[i]].at = block.timestamp;
-            vesting[recipients[i]].amount += amounts[i];
             transfer(recipients[i], amounts[i]);
             emit Airdrop(recipients[i], amounts[i], block.timestamp);
         }

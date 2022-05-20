@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  @dev The contract is intendent to help recovering arbitrary ERC20 tokens and ETH accidentally transferred to the contract address
  */
 abstract contract Recoverable is Ownable {
-    function getRecoverableAmount(address tokenAddress)
+    event RecoveredFunds(
+        address indexed token,
+        address indexed recipient,
+        uint256 amount
+    );
+
+    function _getRecoverableAmount(address tokenAddress)
         internal
         view
         virtual
@@ -28,21 +34,22 @@ abstract contract Recoverable is Ownable {
         uint256 amount,
         address to
     ) external onlyOwner {
-        uint256 recoverableAmount = getRecoverableAmount(tokenAddress);
+        uint256 recoverableAmount = _getRecoverableAmount(tokenAddress);
         require(
             amount <= recoverableAmount,
             "RecoverableByOwner: RECOVERABLE_AMOUNT_NOT_ENOUGH"
         );
-        if (tokenAddress == address(0)) recoverEth(amount, to);
-        else recoverErc20(tokenAddress, amount, to);
+        if (tokenAddress == address(0)) _recoverEth(amount, to);
+        else _recoverErc20(tokenAddress, amount, to);
+        emit RecoveredFunds(tokenAddress, to, amount);
     }
 
-    function recoverEth(uint256 amount, address to) private {
+    function _recoverEth(uint256 amount, address to) private {
         address payable toPayable = payable(to);
         toPayable.transfer(amount);
     }
 
-    function recoverErc20(
+    function _recoverErc20(
         address tokenAddress,
         uint256 amount,
         address to

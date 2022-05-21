@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -10,57 +10,57 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 abstract contract Recoverable is Ownable {
     event RecoveredFunds(
         address indexed token,
-        address indexed recipient,
-        uint256 amount
+        uint256 amount,
+        address indexed recipient
     );
 
-    function _getRecoverableAmount(address tokenAddress)
+    function _getRecoverableAmount(address token)
         internal
         view
         virtual
         returns (uint256)
     {
-        if (tokenAddress == address(0)) return address(this).balance;
-        else return IERC20(tokenAddress).balanceOf(address(this));
+        if (token == address(0)) return address(this).balance;
+        else return IERC20(token).balanceOf(address(this));
     }
 
     /**
-     @param tokenAddress ERC20 token's address to recover or address(0) to recover ETH
+     @param token ERC20 token's address to recover or address(0) to recover ETH
      @param amount to recover from contract's address
-     @param to address to receive tokens from the contract
+     @param recipient address to receive tokens from the contract
      */
     function recoverFunds(
-        address tokenAddress,
+        address token,
         uint256 amount,
-        address to
+        address recipient
     ) external onlyOwner {
-        uint256 recoverableAmount = _getRecoverableAmount(tokenAddress);
+        uint256 recoverableAmount = _getRecoverableAmount(token);
         require(
             amount <= recoverableAmount,
-            "RecoverableByOwner: RECOVERABLE_AMOUNT_NOT_ENOUGH"
+            "Recoverable: RECOVERABLE_AMOUNT_NOT_ENOUGH"
         );
-        if (tokenAddress == address(0)) _recoverEth(amount, to);
-        else _recoverErc20(tokenAddress, amount, to);
-        emit RecoveredFunds(tokenAddress, to, amount);
+        if (token == address(0)) _transferEth(amount, recipient);
+        else _transferErc20(token, amount, recipient);
+        emit RecoveredFunds(token, amount, recipient);
     }
 
-    function _recoverEth(uint256 amount, address to) private {
-        address payable toPayable = payable(to);
+    function _transferEth(uint256 amount, address recipient) internal {
+        address payable toPayable = payable(recipient);
         toPayable.transfer(amount);
     }
 
-    function _recoverErc20(
-        address tokenAddress,
+    function _transferErc20(
+        address token,
         uint256 amount,
-        address to
-    ) private {
+        address recipient
+    ) internal {
         // bytes4(keccak256(bytes('transfer(address,uint256)')));
-        (bool success, bytes memory data) = tokenAddress.call(
-            abi.encodeWithSelector(0xa9059cbb, to, amount)
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSelector(0xa9059cbb, recipient, amount)
         );
         require(
             success && (data.length == 0 || abi.decode(data, (bool))),
-            "RecoverableByOwner: TRANSFER_FAILED"
+            "Recoverable: TRANSFER_FAILED"
         );
     }
 }

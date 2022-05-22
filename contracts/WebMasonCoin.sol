@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20VotesComp.sol";
 import "./Recoverable.sol";
+import "./interfaces/ITransferBatch.sol";
 import "./interfaces/IWmcVesting.sol";
 
 /// @custom:security-contact support@webmason.io
@@ -13,76 +14,17 @@ contract WebMasonCoin is
     ERC20Permit,
     ERC20VotesComp,
     Recoverable,
+    ITransferBatch,
     IWmcVesting
 {
-    VestingParams public vestingParams =
-        VestingParams({
-            lockup: 15552000, // 6 * 30 * 24 * 60 * 60, // 6 months
-            vesting: 155520000 // 5 * 12 * 30 * 24 * 60 * 60 // 5 years
-        });
-    mapping(address => Vesting) private _vesting;
-    mapping(address => bool) public isAirdropper;
+    mapping(address => VestingEntry) private _vestingOf;
+    mapping(address => bool) private _isAirdropper;
 
     constructor() ERC20("WebMasonCoin", "WMC") ERC20Permit("WebMasonCoin") {
         _mint(_msgSender(), 10_000_000_000 * 10**decimals());
 
-        isAirdropper[_msgSender()] = true;
+        _isAirdropper[_msgSender()] = true;
         emit AirdropperUpdated(_msgSender(), true);
-    }
-
-    // Vesting
-    function isVested(address account) public view override returns (bool) {
-        return _vesting[account].amount > 0;
-    }
-
-    function lockedOf(address account) public view override returns (uint256) {
-        if (!isVested(account)) return 0;
-        return
-            _lockedOf(
-                vestingParams.lockup,
-                vestingParams.vesting,
-                uint64(block.timestamp) - _vesting[account].at,
-                uint256(_vesting[account].amount)
-            );
-    }
-
-    function _lockedOf(
-        uint64 lockupTime,
-        uint64 vestingTime,
-        uint64 passedTime,
-        uint256 amount
-    ) private pure returns (uint256) {
-        if (passedTime >= (lockupTime + vestingTime)) return 0;
-        if (passedTime <= lockupTime) return amount;
-        return amount - (amount * (passedTime - lockupTime)) / vestingTime;
-    }
-
-    function vestingOf(address account)
-        external
-        view
-        override
-        returns (
-            uint256 balance,
-            bool isvested,
-            uint64 at,
-            uint256 total,
-            uint256 locked,
-            uint256 unlocked
-        )
-    {
-        balance = balanceOf(account);
-        isvested = isVested(account);
-        if (isvested) {
-            at = _vesting[account].at;
-            total = uint256(_vesting[account].amount);
-            locked = _lockedOf(
-                vestingParams.lockup,
-                vestingParams.vesting,
-                uint64(block.timestamp) - at,
-                total
-            );
-        }
-        unlocked = balance - locked;
     }
 
     function transferBatch(address[] memory accounts, uint256[] memory amounts)
@@ -90,54 +32,149 @@ contract WebMasonCoin is
         override
         returns (bool)
     {
-        require(accounts.length == amounts.length, "TransferBatch mismatch");
+        require(accounts.length == amounts.length, "Mismatch");
         for (uint256 i = 0; i < accounts.length; i++) {
             transfer(accounts[i], amounts[i]);
         }
         return true;
     }
 
-    function setLockup(uint64 lockup) external onlyOwner {
-        vestingParams.lockup = lockup;
+    // Vesting
+    function vestingOf(address account)
+        external
+        view
+        override
+        returns (
+            bool isVested,
+            uint64 start,
+            uint32 lockup,
+            uint32 cliff,
+            uint32 vesting,
+            uint96 balance,
+            uint96 vested,
+            uint96 locked,
+            uint96 unlocked
+        )
+    {
+        isVested = _isVested(account);
+        if (isVested) {
+            start = _vestingOf[account].start;
+            lockup = _vestingOf[account].lockup;
+            cliff = _vestingOf[account].cliff;
+            vesting = _vestingOf[account].vesting;
+            vested = _vestingOf[account].amount;
+            locked = uint96(_lockedOf(account));
+        }
+        balance = uint96(balanceOf(account));
+        unlocked = balance - locked;
+    }
+
+    function _isVested(address account) private view returns (bool) {
+        return _vestingOf[account].amount > 0;
+    }
+
+    function _lockedOf(address account) private view returns (uint256) {
+        return
+            _pureLockedOf(
+                _vestingOf[account].lockup,
+                _vestingOf[account].cliff,
+                _vestingOf[account].vesting,
+                uint64(block.timestamp) - _vestingOf[account].start,
+                uint256(_vestingOf[account].amount)
+            );
+    }
+
+    function _pureLockedOf(
+        uint32 lockupTime,
+        uint32 cliffTime,
+        uint32 vestingTime,
+        uint64 passedTime,
+        uint256 amount
+    ) private pure returns (uint256) {
+        if (passedTime >= (lockupTime + vestingTime)) return 0;
+        if (passedTime <= (lockupTime + cliffTime)) return amount;
+        return amount - (amount * (passedTime - lockupTime)) / vestingTime;
+    }
+
+    function _vestingTimeLeft(address account) private view returns (uint32) {
+        return
+            _pureVestingTimeLeft(
+                _vestingOf[account].lockup,
+                _vestingOf[account].cliff,
+                _vestingOf[account].vesting,
+                uint64(block.timestamp) - _vestingOf[account].start
+            );
+    }
+
+    function _pureVestingTimeLeft(
+        uint32 lockupTime,
+        uint32 cliffTime,
+        uint32 vestingTime,
+        uint64 passedTime
+    ) private pure returns (uint32) {
+        if (passedTime >= (lockupTime + vestingTime)) return 0;
+        if (passedTime <= (lockupTime + cliffTime)) return vestingTime;
+        return vestingTime - uint32(passedTime - lockupTime);
     }
 
     // Airdrop
-    modifier onlyAirdropper() {
-        require(isAirdropper[_msgSender()], "Caller is not allowed");
-        _;
-    }
-
     function setAirdropper(address account, bool status) external onlyOwner {
-        isAirdropper[account] = status;
+        _isAirdropper[account] = status;
         emit AirdropperUpdated(account, status);
     }
 
-    function airdrop(address account, uint256 amount)
-        external
-        override
-        returns (bool)
-    {
-        _airdrop(account, amount);
-        return true;
+    function airdrop(
+        uint32 lockup,
+        uint32 cliff,
+        uint32 vesting,
+        address account,
+        uint96 amount
+    ) external override {
+        _airdrop(lockup, cliff, vesting, account, amount);
     }
 
-    function airdropBatch(address[] memory accounts, uint256[] memory amounts)
-        external
-        override
-        returns (bool)
-    {
-        require(accounts.length == amounts.length, "Airdrop mismatch");
+    function airdropBatch(
+        uint32 lockup,
+        uint32 cliff,
+        uint32 vesting,
+        address[] memory accounts,
+        uint96[] memory amounts
+    ) external override {
+        require(accounts.length == amounts.length, "Mismatch");
         for (uint256 i = 0; i < accounts.length; i++) {
-            _airdrop(accounts[i], amounts[i]);
+            _airdrop(lockup, cliff, vesting, accounts[i], amounts[i]);
         }
-        return true;
     }
 
-    function _airdrop(address account, uint256 amount) private onlyAirdropper {
-        _vesting[account].amount = uint128(lockedOf(account) + amount);
-        _vesting[account].at = uint64(block.timestamp);
+    modifier onlyAirdropper() {
+        require(_isAirdropper[_msgSender()], "Caller is not allowed");
+        _;
+    }
+
+    function _airdrop(
+        uint32 lockup,
+        uint32 cliff,
+        uint32 vesting,
+        address account,
+        uint96 amount
+    ) private onlyAirdropper {
+        if (vesting != 0 || lockup != 0) {
+            _vestingOf[account].amount = uint96(_lockedOf(account) + amount);
+            _vestingOf[account].start = uint64(block.timestamp);
+            _vestingOf[account].lockup = lockup;
+            _vestingOf[account].cliff = cliff;
+            _vestingOf[account].vesting = _vestingTimeLeft(account) + vesting;
+        }
+
         transfer(account, amount);
-        emit Airdrop(account, amount, block.timestamp);
+        emit Airdrop(
+            account,
+            amount,
+            _vestingOf[account].start,
+            _vestingOf[account].lockup,
+            _vestingOf[account].cliff,
+            _vestingOf[account].vesting
+        );
     }
 
     // The following functions are overrides required by Solidity.
@@ -146,15 +183,10 @@ contract WebMasonCoin is
         address to,
         uint256 amount
     ) internal virtual override {
-        if (isVested(from)) {
-            uint256 lockedAmount = _lockedOf(
-                vestingParams.lockup,
-                vestingParams.vesting,
-                uint64(block.timestamp) - _vesting[from].at,
-                uint256(_vesting[from].amount)
-            );
+        if (_isVested(from)) {
+            uint256 lockedAmount = _lockedOf(from);
             if (lockedAmount == 0) {
-                delete _vesting[from];
+                delete _vestingOf[from];
             } else {
                 require(
                     (balanceOf(from) - amount) >= lockedAmount,

@@ -1,105 +1,143 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity 0.8.14;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20VotesComp.sol";
 import "./Recoverable.sol";
+import "./interfaces/IWmcVesting.sol";
 
 /// @custom:security-contact support@webmason.io
-contract WebMasonCoin is ERC20, ERC20Permit, ERC20VotesComp, Recoverable {
-    struct VestingParams {
-        uint256 lockup;
-        uint256 cliff;
-        uint256 vesting;
-    }
+contract WebMasonCoin is
+    ERC20,
+    ERC20Permit,
+    ERC20VotesComp,
+    Recoverable,
+    IWmcVesting
+{
     VestingParams public vestingParams =
         VestingParams({
-            lockup: 6 * 30 * 24 * 60 * 60, // 6 months
-            cliff: 1 * 30 * 24 * 60 * 60, // 1 month
-            vesting: 5 * 12 * 30 * 24 * 60 * 60 // 5 years
+            lockup: 15552000, // 6 * 30 * 24 * 60 * 60, // 6 months
+            vesting: 155520000 // 5 * 12 * 30 * 24 * 60 * 60 // 5 years
         });
-
-    struct Vesting {
-        uint256 amount;
-        uint256 at;
-    }
-    mapping(address => Vesting) public vesting;
-
+    mapping(address => Vesting) private _vesting;
     mapping(address => bool) public isAirdropper;
-
-    event Airdrop(address indexed recipients, uint256 amount, uint256 time);
 
     constructor() ERC20("WebMasonCoin", "WMC") ERC20Permit("WebMasonCoin") {
         _mint(_msgSender(), 10_000_000_000 * 10**decimals());
+
         isAirdropper[_msgSender()] = true;
+        emit AirdropperUpdated(_msgSender(), true);
     }
 
-    function multiTransfer(
-        address[] memory recipients,
-        uint256[] memory amounts
-    ) external {
-        require(
-            recipients.length == amounts.length,
-            "ERC20: multiTransfer mismatch"
-        );
-        for (uint256 i = 0; i < recipients.length; i++) {
-            transfer(recipients[i], amounts[i]);
+    // Vesting
+    function isVested(address account) public view override returns (bool) {
+        return _vesting[account].amount > 0;
+    }
+
+    function lockedOf(address account) public view override returns (uint256) {
+        if (!isVested(account)) return 0;
+        return
+            _lockedOf(
+                vestingParams.lockup,
+                vestingParams.vesting,
+                uint64(block.timestamp) - _vesting[account].at,
+                uint256(_vesting[account].amount)
+            );
+    }
+
+    function _lockedOf(
+        uint64 lockupTime,
+        uint64 vestingTime,
+        uint64 passedTime,
+        uint256 amount
+    ) private pure returns (uint256) {
+        if (passedTime >= (lockupTime + vestingTime)) return 0;
+        if (passedTime <= lockupTime) return amount;
+        return amount - (amount * (passedTime - lockupTime)) / vestingTime;
+    }
+
+    function vestingOf(address account)
+        external
+        view
+        override
+        returns (
+            uint256 balance,
+            bool isvested,
+            uint64 at,
+            uint256 total,
+            uint256 locked,
+            uint256 unlocked
+        )
+    {
+        balance = balanceOf(account);
+        isvested = isVested(account);
+        if (isvested) {
+            at = _vesting[account].at;
+            total = uint256(_vesting[account].amount);
+            locked = _lockedOf(
+                vestingParams.lockup,
+                vestingParams.vesting,
+                uint64(block.timestamp) - at,
+                total
+            );
         }
+        unlocked = balance - locked;
+    }
+
+    function transferBatch(address[] memory accounts, uint256[] memory amounts)
+        external
+        override
+        returns (bool)
+    {
+        require(accounts.length == amounts.length, "TransferBatch mismatch");
+        for (uint256 i = 0; i < accounts.length; i++) {
+            transfer(accounts[i], amounts[i]);
+        }
+        return true;
+    }
+
+    function setLockup(uint64 lockup) external onlyOwner {
+        vestingParams.lockup = lockup;
     }
 
     // Airdrop
     modifier onlyAirdropper() {
-        require(
-            isAirdropper[_msgSender()],
-            "Airdroppable: caller is not allowed"
-        );
+        require(isAirdropper[_msgSender()], "Caller is not allowed");
         _;
     }
 
-    function setAirdropper(address account, bool status) public onlyOwner {
+    function setAirdropper(address account, bool status) external onlyOwner {
         isAirdropper[account] = status;
+        emit AirdropperUpdated(account, status);
     }
 
-    function airdrop(address[] memory recipients, uint256[] memory amounts)
+    function airdrop(address account, uint256 amount)
         external
-        onlyAirdropper
+        override
+        returns (bool)
     {
-        require(recipients.length == amounts.length, "ERC20: airdrop mismatch");
-        for (uint256 i = 0; i < recipients.length; i++) {
-            vesting[recipients[i]].amount =
-                lockedOf(recipients[i]) +
-                amounts[i];
-            vesting[recipients[i]].at = block.timestamp;
-            transfer(recipients[i], amounts[i]);
-            emit Airdrop(recipients[i], amounts[i], block.timestamp);
+        _airdrop(account, amount);
+        return true;
+    }
+
+    function airdropBatch(address[] memory accounts, uint256[] memory amounts)
+        external
+        override
+        returns (bool)
+    {
+        require(accounts.length == amounts.length, "Airdrop mismatch");
+        for (uint256 i = 0; i < accounts.length; i++) {
+            _airdrop(accounts[i], amounts[i]);
         }
+        return true;
     }
 
-    function isVested(address account) public view returns (bool) {
-        return vesting[account].amount > 0;
-    }
-
-    function lockedOf(address account) public view returns (uint256) {
-        if (!isVested(account)) return 0;
-
-        if (
-            (block.timestamp - vesting[account].at) >=
-            (vestingParams.lockup + vestingParams.vesting)
-        ) return 0;
-
-        if (
-            (block.timestamp - vesting[account].at) <=
-            vestingParams.lockup + vestingParams.cliff
-        ) return vesting[account].amount;
-
-        return
-            vesting[account].amount -
-            (vesting[account].amount *
-                (block.timestamp -
-                    vesting[account].at -
-                    vestingParams.lockup)) /
-            vestingParams.vesting;
+    function _airdrop(address account, uint256 amount) private onlyAirdropper {
+        _vesting[account].amount = uint128(lockedOf(account) + amount);
+        _vesting[account].at = uint64(block.timestamp);
+        transfer(account, amount);
+        emit Airdrop(account, amount, block.timestamp);
     }
 
     // The following functions are overrides required by Solidity.
@@ -109,13 +147,18 @@ contract WebMasonCoin is ERC20, ERC20Permit, ERC20VotesComp, Recoverable {
         uint256 amount
     ) internal virtual override {
         if (isVested(from)) {
-            uint256 lockedAmount = lockedOf(from);
+            uint256 lockedAmount = _lockedOf(
+                vestingParams.lockup,
+                vestingParams.vesting,
+                uint64(block.timestamp) - _vesting[from].at,
+                uint256(_vesting[from].amount)
+            );
             if (lockedAmount == 0) {
-                delete vesting[from];
+                delete _vesting[from];
             } else {
                 require(
                     (balanceOf(from) - amount) >= lockedAmount,
-                    "Amount exceeds locked amount"
+                    "Transfer amount exceeds locked amount"
                 );
             }
         }

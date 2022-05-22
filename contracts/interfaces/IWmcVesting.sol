@@ -2,41 +2,52 @@
 pragma solidity ^0.8.0;
 
 interface IWmcVesting {
-    struct VestingParams {
-        uint64 lockup;
-        uint64 vesting;
-    }
-    struct Vesting {
-        uint128 amount;
-        uint64 at;
+    struct VestingEntry {
+        uint96 amount;
+        uint64 start;
+        uint32 lockup;
+        uint32 cliff;
+        uint32 vesting;
     }
 
     event AirdropperUpdated(address indexed account, bool status);
-    event Airdrop(address indexed account, uint256 amount, uint256 time);
-
-    function isVested(address account) external view returns (bool);
-
-    function lockedOf(address account) external view returns (uint256);
+    event Airdrop(
+        address indexed account,
+        uint96 amount,
+        uint64 start,
+        uint32 lockup,
+        uint32 cliff,
+        uint32 vesting
+    );
 
     function vestingOf(address account)
         external
         view
         returns (
-            uint256 balance,
-            bool isvested,
-            uint64 at,
-            uint256 total,
-            uint256 locked,
-            uint256 unlocked
+            bool isVested,
+            uint64 start,
+            uint32 lockup,
+            uint32 cliff,
+            uint32 vesting,
+            uint96 balance,
+            uint96 vested,
+            uint96 locked,
+            uint96 unlocked
         );
 
-    function transferBatch(address[] memory accounts, uint256[] memory amounts)
-        external
-        returns (bool);
+    function airdrop(
+        uint32 lockup,
+        uint32 cliff,
+        uint32 vesting,
+        address account,
+        uint96 amount
+    ) external;
 
-    function airdrop(address account, uint256 amount) external returns (bool);
-
-    function airdropBatch(address[] memory accounts, uint256[] memory amounts)
-        external
-        returns (bool);
+    function airdropBatch(
+        uint32 lockup,
+        uint32 cliff,
+        uint32 vesting,
+        address[] memory accounts,
+        uint96[] memory amounts
+    ) external;
 }

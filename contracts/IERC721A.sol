@@ -73,13 +73,15 @@ interface IERC721A {
      */
     error URIQueryForNonexistentToken();
 
-    // Compiler will pack this into a single 256bit word.
+    // Compiler will pack this into a single 256bit word (160+64+8+8=240).
     struct TokenOwnership {
-        // The address of the owner.
-        address addr;
-        // Keeps track of the start time of ownership with minimal overhead for tokenomics.
-        uint64 startTimestamp;
-        // Whether the token has been burned.
+        // The address of the owner, 160bit.
+        address owner;
+        // Keeps track of token minting time, 64bit.
+        uint64 mintedAt;
+        // Keeps track of package number, 8bit.
+        uint8 package;
+        // Whether the token has been burned, 8bit.
         bool burned;
     }
 

@@ -4,6 +4,7 @@
 
 pragma solidity ^0.8.4;
 
+import "@openzeppelin/contracts/utils/Context.sol";
 import "./IERC721A.sol";
 
 /**
@@ -28,7 +29,7 @@ interface ERC721A__IERC721Receiver {
  *
  * Assumes that the maximum token id cannot exceed 2**256 - 1 (max value of uint256).
  */
-contract ERC721A is IERC721A {
+contract ERC721A is Context, IERC721A {
     // The tokenId of the next token to be minted.
     uint256 internal _currentIndex;
 
@@ -63,8 +64,8 @@ contract ERC721A is IERC721A {
     /**
      * To change the starting tokenId, please override this function.
      */
-    function _startTokenId() internal view virtual returns (uint256) {
-        return 0;
+    function _startTokenId() internal pure virtual returns (uint256) {
+        return 1;
     }
 
     /**
@@ -130,14 +131,14 @@ contract ERC721A is IERC721A {
         return uint256(_addressData[owner].numberBurned);
     }
 
-    /**
+    /** TODO delete
      * Returns the auxillary data for `owner`. (e.g. number of whitelist mint slots used).
      */
     function _getAux(address owner) internal view returns (uint64) {
         return _addressData[owner].aux;
     }
 
-    /**
+    /** TODO delete
      * Sets the auxillary data for `owner`. (e.g. number of whitelist mint slots used).
      * If there are multiple variables, please pack them into a uint64.
      */
@@ -157,11 +158,11 @@ contract ERC721A is IERC721A {
         uint256 curr = tokenId;
 
         unchecked {
-            if (_startTokenId() <= curr)
+            if (_startTokenId() <= curr) {
                 if (curr < _currentIndex) {
                     TokenOwnership memory ownership = _ownerships[curr];
                     if (!ownership.burned) {
-                        if (ownership.addr != address(0)) {
+                        if (ownership.owner != address(0)) {
                             return ownership;
                         }
                         // Invariant:
@@ -171,12 +172,13 @@ contract ERC721A is IERC721A {
                         while (true) {
                             curr--;
                             ownership = _ownerships[curr];
-                            if (ownership.addr != address(0)) {
+                            if (ownership.owner != address(0)) {
                                 return ownership;
                             }
                         }
                     }
                 }
+            }
         }
         revert OwnerQueryForNonexistentToken();
     }
@@ -185,7 +187,7 @@ contract ERC721A is IERC721A {
      * @dev See {IERC721-ownerOf}.
      */
     function ownerOf(uint256 tokenId) public view override returns (address) {
-        return _ownershipOf(tokenId).addr;
+        return _ownershipOf(tokenId).owner;
     }
 
     /**
@@ -205,28 +207,9 @@ contract ERC721A is IERC721A {
     /**
      * @dev See {IERC721Metadata-tokenURI}.
      */
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        virtual
-        override
-        returns (string memory)
-    {
-        if (!_exists(tokenId)) revert URIQueryForNonexistentToken();
-
-        string memory baseURI = _baseURI();
-        return
-            bytes(baseURI).length != 0
-                ? string(abi.encodePacked(baseURI, _toString(tokenId)))
-                : "";
-    }
-
-    /**
-     * @dev Base URI for computing {tokenURI}. If set, the resulting URI for each
-     * token will be the concatenation of the `baseURI` and the `tokenId`. Empty
-     * by default, can be overriden in child contracts.
-     */
-    function _baseURI() internal view virtual returns (string memory) {
+    function tokenURI(
+        uint256 /*tokenId*/
+    ) external view virtual override returns (string memory) {
         return "";
     }
 
@@ -342,8 +325,12 @@ contract ERC721A is IERC721A {
     /**
      * @dev Equivalent to `_safeMint(to, quantity, '')`.
      */
-    function _safeMint(address to, uint256 quantity) internal {
-        _safeMint(to, quantity, "");
+    function _safeMint(
+        address to,
+        uint8 package,
+        uint256 quantity
+    ) internal {
+        _safeMint(to, package, quantity, "");
     }
 
     /**
@@ -359,6 +346,7 @@ contract ERC721A is IERC721A {
      */
     function _safeMint(
         address to,
+        uint8 package,
         uint256 quantity,
         bytes memory _data
     ) internal {
@@ -375,8 +363,9 @@ contract ERC721A is IERC721A {
             _addressData[to].balance += uint64(quantity);
             _addressData[to].numberMinted += uint64(quantity);
 
-            _ownerships[startTokenId].addr = to;
-            _ownerships[startTokenId].startTimestamp = uint64(block.timestamp);
+            _ownerships[startTokenId].owner = to;
+            _ownerships[startTokenId].mintedAt = uint64(block.timestamp);
+            _ownerships[startTokenId].package = package;
 
             uint256 updatedIndex = startTokenId;
             uint256 end = updatedIndex + quantity;
@@ -417,7 +406,11 @@ contract ERC721A is IERC721A {
      *
      * Emits a {Transfer} event.
      */
-    function _mint(address to, uint256 quantity) internal {
+    function _mint(
+        address to,
+        uint8 package,
+        uint256 quantity
+    ) internal {
         uint256 startTokenId = _currentIndex;
         if (to == address(0)) revert MintToZeroAddress();
         if (quantity == 0) revert MintZeroQuantity();
@@ -431,8 +424,9 @@ contract ERC721A is IERC721A {
             _addressData[to].balance += uint64(quantity);
             _addressData[to].numberMinted += uint64(quantity);
 
-            _ownerships[startTokenId].addr = to;
-            _ownerships[startTokenId].startTimestamp = uint64(block.timestamp);
+            _ownerships[startTokenId].owner = to;
+            _ownerships[startTokenId].mintedAt = uint64(block.timestamp);
+            _ownerships[startTokenId].package = package;
 
             uint256 updatedIndex = startTokenId;
             uint256 end = updatedIndex + quantity;
@@ -463,7 +457,7 @@ contract ERC721A is IERC721A {
     ) private {
         TokenOwnership memory prevOwnership = _ownershipOf(tokenId);
 
-        if (prevOwnership.addr != from) revert TransferFromIncorrectOwner();
+        if (prevOwnership.owner != from) revert TransferFromIncorrectOwner();
 
         bool isApprovedOrOwner = (_msgSender() == from ||
             isApprovedForAll(from, _msgSender()) ||
@@ -485,19 +479,18 @@ contract ERC721A is IERC721A {
             _addressData[to].balance += 1;
 
             TokenOwnership storage currSlot = _ownerships[tokenId];
-            currSlot.addr = to;
-            currSlot.startTimestamp = uint64(block.timestamp);
+            currSlot.owner = to;
 
             // If the ownership slot of tokenId+1 is not explicitly set, that means the transfer initiator owns it.
             // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
             uint256 nextTokenId = tokenId + 1;
             TokenOwnership storage nextSlot = _ownerships[nextTokenId];
-            if (nextSlot.addr == address(0)) {
+            if (nextSlot.owner == address(0)) {
                 // This will suffice for checking _exists(nextTokenId),
                 // as a burned slot cannot contain the zero address.
                 if (nextTokenId != _currentIndex) {
-                    nextSlot.addr = from;
-                    nextSlot.startTimestamp = prevOwnership.startTimestamp;
+                    nextSlot.owner = from;
+                    nextSlot.mintedAt = prevOwnership.mintedAt;
                 }
             }
         }
@@ -526,7 +519,7 @@ contract ERC721A is IERC721A {
     function _burn(uint256 tokenId, bool approvalCheck) internal virtual {
         TokenOwnership memory prevOwnership = _ownershipOf(tokenId);
 
-        address from = prevOwnership.addr;
+        address from = prevOwnership.owner;
 
         if (approvalCheck) {
             bool isApprovedOrOwner = (_msgSender() == from ||
@@ -551,20 +544,19 @@ contract ERC721A is IERC721A {
 
             // Keep track of who burned the token, and the timestamp of burning.
             TokenOwnership storage currSlot = _ownerships[tokenId];
-            currSlot.addr = from;
-            currSlot.startTimestamp = uint64(block.timestamp);
+            currSlot.owner = from;
             currSlot.burned = true;
 
             // If the ownership slot of tokenId+1 is not explicitly set, that means the burn initiator owns it.
             // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
             uint256 nextTokenId = tokenId + 1;
             TokenOwnership storage nextSlot = _ownerships[nextTokenId];
-            if (nextSlot.addr == address(0)) {
+            if (nextSlot.owner == address(0)) {
                 // This will suffice for checking _exists(nextTokenId),
                 // as a burned slot cannot contain the zero address.
                 if (nextTokenId != _currentIndex) {
-                    nextSlot.addr = from;
-                    nextSlot.startTimestamp = prevOwnership.startTimestamp;
+                    nextSlot.owner = from;
+                    nextSlot.mintedAt = prevOwnership.mintedAt;
                 }
             }
         }
@@ -659,20 +651,6 @@ contract ERC721A is IERC721A {
         uint256 startTokenId,
         uint256 quantity
     ) internal virtual {}
-
-    /**
-     * @dev Returns the message sender (defaults to `msg.sender`).
-     */
-    function _msgSender() internal view virtual returns (address) {
-        return msg.sender;
-    }
-
-    /**
-     * @dev Returns the message data (defaults to `msg.data`).
-     */
-    function _msgData() internal view virtual returns (bytes calldata) {
-        return msg.data;
-    }
 
     /**
      * @dev Converts a `uint256` to its ASCII `string` decimal representation.

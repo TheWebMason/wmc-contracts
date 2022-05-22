@@ -5,7 +5,7 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/utils/Context.sol";
-import "./IERC721A.sol";
+import "./interfaces/IERC721A.sol";
 
 /**
  * @dev ERC721 token receiver interface.

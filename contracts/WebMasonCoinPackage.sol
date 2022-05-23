@@ -4,6 +4,7 @@ pragma solidity 0.8.14;
 import "./ERC721A.sol";
 import "./Recoverable.sol";
 import "./interfaces/IWmcVesting.sol";
+import "./ProxyRegistry.sol";
 
 interface INftDescriptor {
     function contractURI() external view returns (string memory);
@@ -24,9 +25,8 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
     address public immutable TOKEN;
     uint8 private constant _DECIMALS = 18;
 
-    uint8 private constant _totalPackages = 8;
+    uint8 private constant _totalPackages = 7;
     uint256[_totalPackages] public PACKAGE = [
-        0,
         10_000 * 10**_DECIMALS,
         25_000 * 10**_DECIMALS,
         50_000 * 10**_DECIMALS,
@@ -60,15 +60,20 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
     // OpenSea
     address private _proxyRegistry;
 
-    constructor(address token_) ERC721A("WebMasonCoin Package", "WMC-PACK") {
+    constructor(address token_, address proxyRegistry_)
+        ERC721A("WebMasonCoin Package", "WMC-PACK")
+    {
         TOKEN = token_;
+        _proxyRegistry = proxyRegistry_;
     }
 
     modifier checkPackageNumber(uint8 packageNumber) {
-        require(
-            packageNumber > 0 && packageNumber < _totalPackages,
-            "Invalid package number"
-        );
+        require(packageNumber < _totalPackages, "Invalid package number");
+        _;
+    }
+
+    modifier checkQuantity(uint8 quantity) {
+        require(quantity > 0, "Invalid quantity");
         _;
     }
 
@@ -89,8 +94,8 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
         external
         payable
         checkPackageNumber(packageNumber)
+        checkQuantity(quantity)
     {
-        require(quantity > 0, "Invalid quantity");
         // проверка есть ли токены
         _safeMint(msg.sender, packageNumber, uint256(quantity));
         vestingStats.total += PACKAGE[packageNumber] * quantity;
@@ -218,6 +223,11 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
         return INftDescriptor(descriptor).contractURI();
     }
 
+    // OpenSea
+    function unsetProxyRegistry() external onlyOwner {
+        _proxyRegistry = address(0);
+    }
+
     // The following functions are overrides required by Solidity.
     function tokenURI(uint256 tokenId)
         external
@@ -227,6 +237,19 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
     {
         if (!_exists(tokenId)) revert URIQueryForNonexistentToken();
         return INftDescriptor(descriptor).tokenURI(tokenId);
+    }
+
+    function isApprovedForAll(address owner, address operator)
+        public
+        view
+        override
+        returns (bool)
+    {
+        if (
+            _proxyRegistry != address(0) &&
+            address(ProxyRegistry(_proxyRegistry).proxies(owner)) == operator
+        ) return true;
+        super.isApprovedForAll(owner, operator);
     }
 
     function _getRecoverableAmount(address token)

@@ -8,3 +8,15 @@
   - Ethereum Mainnet [?](https://etherscan.io/token/?);
   - Ethereum Ropsten Testnet [?](https://ropsten.etherscan.io/token/?);
   - Ethereum Rinkeby Testnet [?](https://rinkeby.etherscan.io/token/?).
+
+### Compile
+```bash
+yarn install
+yarn compile
+```
+
+## OS Airdrop
+### Generate OS Airdrop list
+```bash
+node ./scripts/os-airdrop.js
+```

@@ -41,7 +41,7 @@ interface IWmcVesting {
         uint32 vesting,
         address account,
         uint96 amount
-    ) external;
+    ) external returns (bool);
 
     function airdropBatch(
         uint32 lockup,
@@ -49,5 +49,5 @@ interface IWmcVesting {
         uint32 vesting,
         address[] memory accounts,
         uint96[] memory amounts
-    ) external;
+    ) external returns (bool);
 }

@@ -50,7 +50,7 @@ contract WebMasonCoinOpenSeaAirdrop is Ownable {
 
     function claim(
         address account,
-        uint96 amount,
+        uint256 amount,
         bytes32[] calldata merkleProof
     ) external {
         require(!claimed[account], "Already claimed");

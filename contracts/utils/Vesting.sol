@@ -156,13 +156,13 @@ abstract contract Vesting is ERC20, Ownable, IVesting {
         uint96 amount
     ) private {
         if (vesting != 0 || cliff != 0 || lockup != 0) {
-            _vestingOf[account].amount += amount;
             if (!_isVested(account)) {
                 _vestingOf[account].start = start;
                 _vestingOf[account].lockup = lockup;
                 _vestingOf[account].cliff = cliff;
                 _vestingOf[account].vesting = vesting;
             }
+            _vestingOf[account].amount += amount;
             emit VestingEntryUpdated(
                 account,
                 _vestingOf[account].amount,

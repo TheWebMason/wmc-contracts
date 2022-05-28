@@ -36,7 +36,7 @@ for (let i in airdropList) {
 
 // Encode the datastructure
 const elements = airdropList.map((x) => {
-  return utils.solidityKeccak256(["address", "uint96"], [x.address, x.amount]);
+  return utils.solidityKeccak256(["address", "uint256"], [x.address, x.amount]);
 });
 const merkleTree = new MerkleTree(elements, keccak256, { sort: true });
 const root = merkleTree.getHexRoot();

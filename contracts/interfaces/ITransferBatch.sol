@@ -5,4 +5,10 @@ interface ITransferBatch {
     function transferBatch(address[] memory accounts, uint256[] memory amounts)
         external
         returns (bool);
+
+    function transferBatchFrom(
+        address from,
+        address[] memory accounts,
+        uint256[] memory amounts
+    ) external returns (bool);
 }

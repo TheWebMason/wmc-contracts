@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface IWmcVesting {
+interface IVesting {
     struct VestingEntry {
         uint96 amount;
         uint64 start;
@@ -11,7 +11,8 @@ interface IWmcVesting {
     }
 
     event AirdropperUpdated(address indexed account, bool status);
-    event Airdrop(
+    event Airdrop(address indexed account, uint96 amount);
+    event VestingEntryUpdated(
         address indexed account,
         uint96 amount,
         uint64 start,
@@ -24,7 +25,6 @@ interface IWmcVesting {
         external
         view
         returns (
-            bool isVested,
             uint64 start,
             uint32 lockup,
             uint32 cliff,
@@ -34,6 +34,15 @@ interface IWmcVesting {
             uint96 locked,
             uint96 unlocked
         );
+
+    function setVesting(
+        address account,
+        uint96 amount,
+        uint64 start,
+        uint32 lockup,
+        uint32 cliff,
+        uint32 vesting
+    ) external returns (bool);
 
     function airdrop(
         uint32 lockup,

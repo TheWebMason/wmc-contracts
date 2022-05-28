@@ -3,17 +3,12 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "../interfaces/IRecoverable.sol";
 
 /**
  @dev The contract is intendent to help recovering arbitrary ERC20 tokens and ETH accidentally transferred to the contract address
  */
-abstract contract Recoverable is Ownable {
-    event RecoveredFunds(
-        address indexed token,
-        uint256 amount,
-        address indexed recipient
-    );
-
+abstract contract Recoverable is Ownable, IRecoverable {
     function _getRecoverableAmount(address token)
         internal
         view
@@ -33,7 +28,7 @@ abstract contract Recoverable is Ownable {
         address token,
         uint256 amount,
         address recipient
-    ) external onlyOwner {
+    ) external override onlyOwner returns (bool) {
         uint256 recoverableAmount = _getRecoverableAmount(token);
         require(
             amount <= recoverableAmount,
@@ -42,9 +37,10 @@ abstract contract Recoverable is Ownable {
         if (token == address(0)) _transferEth(amount, recipient);
         else _transferErc20(token, amount, recipient);
         emit RecoveredFunds(token, amount, recipient);
+        return true;
     }
 
-    function _transferEth(uint256 amount, address recipient) internal {
+    function _transferEth(uint256 amount, address recipient) private {
         address payable toPayable = payable(recipient);
         toPayable.transfer(amount);
     }
@@ -53,7 +49,7 @@ abstract contract Recoverable is Ownable {
         address token,
         uint256 amount,
         address recipient
-    ) internal {
+    ) private {
         // bytes4(keccak256(bytes('transfer(address,uint256)')));
         (bool success, bytes memory data) = token.call(
             abi.encodeWithSelector(0xa9059cbb, recipient, amount)

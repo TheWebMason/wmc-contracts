@@ -4,24 +4,48 @@ pragma solidity 0.8.14;
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./interfaces/IWmcVesting.sol";
+import "./interfaces/IVesting.sol";
 
 /// @custom:security-contact support@webmason.io
 contract WebMasonCoinOpenSeaAirdrop is Ownable {
     address public immutable TOKEN;
     bytes32 public merkleRoot;
     uint256 public endTime;
-    mapping(address => bool) claimed;
 
+    struct VestingParams {
+        uint32 lockup;
+        uint32 cliff;
+        uint32 vesting;
+    }
+    VestingParams public vestingParams =
+        VestingParams({
+            lockup: 6 * 30 * 24 * 60 * 60,
+            cliff: 0,
+            vesting: 5 * 365 * 24 * 60 * 60
+        });
+
+    mapping(address => bool) public claimed;
     event Claimed(address indexed account, uint96 amount);
 
-    constructor(address token_) public {
+    constructor(address token_) {
         TOKEN = token_;
     }
 
-    function setRoot(bytes32 merkleRoot_) external onlyOwner {
+    function setRoot(bytes32 merkleRoot_, uint256 duration) external onlyOwner {
         merkleRoot = merkleRoot_;
-        endTime = block.timestamp + 365 * 24 * 60 * 60;
+        endTime = block.timestamp + duration;
+    }
+
+    function setVestingParams(
+        uint32 lockup,
+        uint32 cliff,
+        uint32 vesting
+    ) external onlyOwner {
+        vestingParams = VestingParams({
+            lockup: lockup,
+            cliff: cliff,
+            vesting: vesting
+        });
     }
 
     function claim(
@@ -32,18 +56,18 @@ contract WebMasonCoinOpenSeaAirdrop is Ownable {
         require(!claimed[account], "Already claimed");
         require(
             _verify(_leaf(account, amount), merkleProof),
-            "MerkleDistributor: Invalid proof."
+            "MerkleDistributor: Invalid  merkle proof"
         );
 
         require(
-            IWmcVesting(TOKEN).airdrop(
-                6 * 30 * 24 * 60 * 60, // lockup
-                0, // cliff
-                5 * 365 * 24 * 60 * 60, // vesting
+            IVesting(TOKEN).airdrop(
+                vestingParams.lockup,
+                vestingParams.cliff,
+                vestingParams.vesting,
                 account,
                 amount
             ),
-            "TRANSFER_FAILED"
+            "AIRDROP_FAILED"
         );
 
         claimed[account] = true;
@@ -66,22 +90,14 @@ contract WebMasonCoinOpenSeaAirdrop is Ownable {
         return MerkleProof.verify(merkleProof, merkleRoot, leaf);
     }
 
-    modifier isEnded() {
+    function claim_rest_of_tokens_and_selfdestruct() external onlyOwner {
         require(block.timestamp >= endTime, "Too early");
-        _;
-    }
-
-    function claim_rest_of_tokens_and_selfdestruct()
-        external
-        onlyOwner
-        isEnded
-    {
         require(
             IERC20(TOKEN).transfer(
                 owner(),
                 IERC20(TOKEN).balanceOf(address(this))
             )
         );
-        selfdestruct;
+        selfdestruct(payable(owner()));
     }
 }

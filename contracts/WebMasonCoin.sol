@@ -15,11 +15,7 @@ contract WebMasonCoin is
     Recoverable,
     TransferBatch
 {
-    constructor()
-        ERC20("WebMasonCoin", "WMC")
-        ERC20Permit("WebMasonCoin")
-        Vesting(_msgSender())
-    {
+    constructor() ERC20("WebMasonCoin", "WMC") ERC20Permit("WebMasonCoin") {
         _mint(_msgSender(), 10_000_000_000 * 10**decimals());
     }
 

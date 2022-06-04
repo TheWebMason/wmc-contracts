@@ -9,11 +9,6 @@ abstract contract Vesting is ERC20, Ownable, IVesting {
     mapping(address => VestingEntry) private _vestingOf;
     mapping(address => bool) private _isAirdropper;
 
-    constructor(address newAirdropper) {
-        _isAirdropper[newAirdropper] = true;
-        emit AirdropperUpdated(newAirdropper, true);
-    }
-
     function setVesting(
         address account,
         uint96 amount,

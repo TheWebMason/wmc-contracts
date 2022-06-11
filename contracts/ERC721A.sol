@@ -491,6 +491,7 @@ contract ERC721A is Context, IERC721A {
                 if (nextTokenId != _currentIndex) {
                     nextSlot.owner = from;
                     nextSlot.mintedAt = prevOwnership.mintedAt;
+                    nextSlot.package = prevOwnership.package;
                 }
             }
         }
@@ -557,6 +558,7 @@ contract ERC721A is Context, IERC721A {
                 if (nextTokenId != _currentIndex) {
                     nextSlot.owner = from;
                     nextSlot.mintedAt = prevOwnership.mintedAt;
+                    nextSlot.package = prevOwnership.package;
                 }
             }
         }

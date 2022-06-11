@@ -2,9 +2,10 @@
 pragma solidity 0.8.14;
 
 import "./ERC721A.sol";
-import "./Recoverable.sol";
-import "./interfaces/IWmcVesting.sol";
-import "./ProxyRegistry.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./utils/ProxyRegistry.sol";
+import "./utils/Recoverable.sol";
+import "./interfaces/IVesting.sol";
 
 interface INftDescriptor {
     function contractURI() external view returns (string memory);
@@ -26,36 +27,39 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
     uint8 private constant _DECIMALS = 18;
 
     uint8 private constant _totalPackages = 7;
-    uint256[_totalPackages] public PACKAGE = [
-        10_000 * 10**_DECIMALS,
-        25_000 * 10**_DECIMALS,
-        50_000 * 10**_DECIMALS,
-        100_000 * 10**_DECIMALS,
-        250_000 * 10**_DECIMALS,
-        500_000 * 10**_DECIMALS,
-        1_000_000 * 10**_DECIMALS
+    uint96[_totalPackages] public PACKAGE = [
+        uint96(10_000 * 10**_DECIMALS),
+        uint96(25_000 * 10**_DECIMALS),
+        uint96(50_000 * 10**_DECIMALS),
+        uint96(100_000 * 10**_DECIMALS),
+        uint96(250_000 * 10**_DECIMALS),
+        uint96(500_000 * 10**_DECIMALS),
+        uint96(1_000_000 * 10**_DECIMALS)
     ];
 
     struct VestingParams {
-        uint64 lockup;
-        uint64 vesting;
+        bool isAllowed;
+        uint32 lockup;
+        uint32 vesting;
     }
     VestingParams public vestingParams =
         VestingParams({
+            isAllowed: false,
             lockup: 6 * 30 * 24 * 60 * 60, // 6 months
             vesting: 5 * 12 * 30 * 24 * 60 * 60 // 5 years
         });
+
     struct VestingStats {
-        uint256 total;
-        uint256 claimed;
+        uint96 total;
+        uint96 claimed;
     }
     VestingStats public vestingStats;
 
-    // tokenId => claimed amount
-    mapping(uint256 => uint256) internal _claimedOf;
+    // tokenId => claimed token amount
+    mapping(uint256 => uint96) internal _claimedOf;
 
     // Metadata
-    address public descriptor;
+    address private _descriptor;
 
     // OpenSea
     address private _proxyRegistry;
@@ -67,38 +71,63 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
         _proxyRegistry = proxyRegistry_;
     }
 
+    modifier checkQuantity(uint256 quantity) {
+        require(quantity > 0, "Invalid quantity");
+        _;
+    }
+
     modifier checkPackageNumber(uint8 packageNumber) {
         require(packageNumber < _totalPackages, "Invalid package number");
         _;
     }
 
-    modifier checkQuantity(uint8 quantity) {
-        require(quantity > 0, "Invalid quantity");
+    modifier checkTokens(uint8 packageNumber, uint256 quantity) {
+        vestingStats.total += PACKAGE[packageNumber] * uint96(quantity);
+        require(
+            IERC20(TOKEN).balanceOf(address(this)) >=
+                (vestingStats.total - vestingStats.claimed),
+            "Insufficient tokens"
+        );
         _;
     }
 
-    function mintAirdrop(uint8 packageNumber, address[] memory recipients)
+    function mintAirdrop(uint8 packageNumber, address[] memory accounts)
         external
         onlyOwner
+        checkQuantity(accounts.length)
         checkPackageNumber(packageNumber)
+        checkTokens(packageNumber, accounts.length)
     {
-        // проверка есть ли токены
-        for (uint256 i = 0; i < recipients.length; i++) {
-            //_internalMint(recipients[i], packageNumber);
-            _safeMint(recipients[i], packageNumber, 1);
-            vestingStats.total += PACKAGE[packageNumber];
+        for (uint256 i = 0; i < accounts.length; i++) {
+            _safeMint(accounts[i], packageNumber, 1);
         }
     }
 
-    function mint(uint8 packageNumber, uint8 quantity)
+    function mint(uint8 packageNumber, uint256 quantity)
         external
         payable
-        checkPackageNumber(packageNumber)
         checkQuantity(quantity)
+        checkPackageNumber(packageNumber)
+        checkTokens(packageNumber, quantity)
     {
-        // проверка есть ли токены
-        _safeMint(msg.sender, packageNumber, uint256(quantity));
-        vestingStats.total += PACKAGE[packageNumber] * quantity;
+        _safeMint(_msgSender(), packageNumber, quantity);
+    }
+
+    /**
+     * @dev Pack ERC20 tokens into a ERC721 package
+     */
+    function pack(uint8 packageNumber, uint256 quantity)
+        external
+        checkQuantity(quantity)
+        checkPackageNumber(packageNumber)
+    {
+        uint96 amount = PACKAGE[packageNumber] * uint96(quantity);
+        vestingStats.total += amount;
+        require(
+            IERC20(TOKEN).transferFrom(_msgSender(), address(this), amount),
+            "TRANSFER_FAILED"
+        );
+        _safeMint(_msgSender(), packageNumber, quantity);
     }
 
     // Vesting
@@ -182,23 +211,24 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
             );
     }
 
-    function claim(uint256 tokenId) public {
-        TokenOwnership memory ownership = _ownershipOf(tokenId);
+    /*function claim(uint256 tokenId) public {
+        //TokenOwnership memory ownership = _ownershipOf(tokenId);
         //claimedOf(tokenId);
-        uint96 unClaimed = 0; // ?
-        _transferErc20(TOKEN, unClaimed, ownership.owner);
-    }
+        // проверка owner
+        //uint96 unClaimed = 0; // ?
+        //_transferErc20(TOKEN, unClaimed, ownership.owner);
+    }*/
 
     function burn(uint256 tokenId) external {
         // override
         // if alloved burn
-        TokenOwnership memory ownership = _ownershipOf(tokenId);
-        uint256 vestedAmount = PACKAGE[ownership.package];
-        uint96 claimed = 0; // ?
+        //TokenOwnership memory ownership = _ownershipOf(tokenId);
+        //uint256 vestedAmount = PACKAGE[ownership.package];
+        //uint96 claimed = 0; // ?
         //uint96 unClaimed = 0; // ?
 
         // начисление токенов если есть
-        claim(tokenId);
+        //claim(tokenId);
 
         // создание эйрдропа
         /*IWmcVesting(TOKEN).airdrop(
@@ -209,21 +239,23 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
         );*/
 
         // Update statistics
-        vestingStats.total -= vestedAmount;
-        vestingStats.claimed -= claimed;
+        //vestingStats.total -= vestedAmount;
+        //vestingStats.claimed -= claimed;
         _burn(tokenId, true);
     }
 
     function setDescriptor(address descriptor_) external onlyOwner {
-        descriptor = descriptor_;
+        _descriptor = descriptor_;
     }
 
     // Metadata
     function contractURI() external view returns (string memory) {
-        return INftDescriptor(descriptor).contractURI();
+        return INftDescriptor(_descriptor).contractURI();
     }
 
-    // OpenSea
+    /**
+     * @dev Unset OpenSea ProxyRegistry. When threatened by OpenSea.
+     */
     function unsetProxyRegistry() external onlyOwner {
         _proxyRegistry = address(0);
     }
@@ -236,7 +268,7 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
         returns (string memory)
     {
         if (!_exists(tokenId)) revert URIQueryForNonexistentToken();
-        return INftDescriptor(descriptor).tokenURI(tokenId);
+        return INftDescriptor(_descriptor).tokenURI(tokenId);
     }
 
     function isApprovedForAll(address owner, address operator)
@@ -249,7 +281,7 @@ contract WebMasonCoinPackage is ERC721A, Recoverable, IWebMasonCoinPackage {
             _proxyRegistry != address(0) &&
             address(ProxyRegistry(_proxyRegistry).proxies(owner)) == operator
         ) return true;
-        super.isApprovedForAll(owner, operator);
+        return super.isApprovedForAll(owner, operator);
     }
 
     function _getRecoverableAmount(address token)

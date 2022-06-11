@@ -29,6 +29,17 @@ module.exports = {
   },
 
   networks: {
+    // Useful for testing. The `development` name is special - truffle uses it by default
+    // if it's defined here and no other network is specified at the command line.
+    // You should run a client (like ganache-cli, geth or parity) in a separate terminal
+    // tab if you use this network and you must also set the `host`, `port` and `network_id`
+    // options below to some value.
+    development: {
+      host: "127.0.0.1",     // Localhost (default: none)
+      port: 8545,            // Standard Ethereum port (default: none)
+      network_id: "*",       // Any network (default: none)
+    },
+
     rinkeby: {
       provider: () => new HDWalletProvider(
         MNEMONIC,
@@ -37,12 +48,14 @@ module.exports = {
       ),
       websocket: true,        // Enable EventEmitter interface for web3 (default: false)
       network_id: 4,
+      production: true,    // Treats this network as if it was a public net. (default: false)
       gas: 5500000,        // Ropsten has a lower block limit than mainnet
       // gasPrice: 20000000000,  // 20 gwei (in wei) (default: 100 gwei)
       confirmations: 2,    // # of confs to wait between deployments. (default: 0)
       timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
       skipDryRun: true     // Skip dry run before migrations? (default: false for public nets )
     },
+
     mainnet: {
       provider: () => new HDWalletProvider(
         MNEMONIC,
@@ -51,23 +64,14 @@ module.exports = {
       ),
       websocket: true,        // Enable EventEmitter interface for web3 (default: false)
       network_id: 1,
+      production: true,    // Treats this network as if it was a public net. (default: false)
       gas: 5500000,        // Ropsten has a lower block limit than mainnet
       // gasPrice: 20000000000,  // 20 gwei (in wei) (default: 100 gwei)
       confirmations: 2,    // # of confs to wait between deployments. (default: 0)
       timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
       skipDryRun: true     // Skip dry run before migrations? (default: false for public nets )
     },
-    // Useful for testing. The `development` name is special - truffle uses it by default
-    // if it's defined here and no other network is specified at the command line.
-    // You should run a client (like ganache-cli, geth or parity) in a separate terminal
-    // tab if you use this network and you must also set the `host`, `port` and `network_id`
-    // options below to some value.
-    //
-    // development: {
-    //  host: "127.0.0.1",     // Localhost (default: none)
-    //  port: 8545,            // Standard Ethereum port (default: none)
-    //  network_id: "*",       // Any network (default: none)
-    // },
+
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port

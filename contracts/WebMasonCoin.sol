@@ -3,6 +3,7 @@ pragma solidity 0.8.14;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./utils/Vesting.sol";
 import "./utils/Recoverable.sol";
 import "./utils/TransferBatch.sol";
@@ -11,6 +12,7 @@ import "./utils/TransferBatch.sol";
 contract WebMasonCoin is
     ERC20,
     ERC20Permit,
+    Ownable,
     Vesting,
     Recoverable,
     TransferBatch

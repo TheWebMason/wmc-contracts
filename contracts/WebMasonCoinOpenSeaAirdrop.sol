@@ -25,7 +25,7 @@ contract WebMasonCoinOpenSeaAirdrop is Ownable {
         });
 
     mapping(address => bool) public claimed;
-    event Claimed(address indexed account, uint96 amount);
+    event Claimed(address indexed account, uint256 amount);
 
     constructor(address token_) {
         TOKEN = token_;
@@ -65,7 +65,7 @@ contract WebMasonCoinOpenSeaAirdrop is Ownable {
                 vestingParams.cliff,
                 vestingParams.vesting,
                 account,
-                amount
+                uint96(amount)
             ),
             "AIRDROP_FAILED"
         );

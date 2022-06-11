@@ -35,15 +35,6 @@ interface IVesting {
             uint96 unlocked
         );
 
-    function setVesting(
-        address account,
-        uint96 amount,
-        uint64 start,
-        uint32 lockup,
-        uint32 cliff,
-        uint32 vesting
-    ) external returns (bool);
-
     function airdrop(
         uint32 lockup,
         uint32 cliff,

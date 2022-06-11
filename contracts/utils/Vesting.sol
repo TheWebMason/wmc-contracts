@@ -9,30 +9,6 @@ abstract contract Vesting is ERC20, Ownable, IVesting {
     mapping(address => VestingEntry) private _vestingOf;
     mapping(address => bool) private _isAirdropper;
 
-    function setVesting(
-        address account,
-        uint96 amount,
-        uint64 start,
-        uint32 lockup,
-        uint32 cliff,
-        uint32 vesting
-    ) external override onlyOwner returns (bool) {
-        _vestingOf[account].amount = amount;
-        _vestingOf[account].start = start;
-        _vestingOf[account].lockup = lockup;
-        _vestingOf[account].cliff = cliff;
-        _vestingOf[account].vesting = vesting;
-        emit VestingEntryUpdated(
-            account,
-            amount,
-            start,
-            lockup,
-            cliff,
-            vesting
-        );
-        return true;
-    }
-
     function vestingOf(address account)
         external
         view

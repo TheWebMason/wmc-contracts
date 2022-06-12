@@ -5,6 +5,7 @@ const Safe = artifacts.require('WebMasonCoinSafe');
 
 module.exports = async (deployer, network, accounts) => {
   let wallet = accounts[0];
+  let signer = accounts[0];
   let proxyRegistry = '0x0000000000000000000000000000000000000000';
   if (network === 'development') {
     proxyRegistry = '0x0000000000000000000000000000000000000000';
@@ -15,6 +16,6 @@ module.exports = async (deployer, network, accounts) => {
     proxyRegistry = '0xa5409ec958c83c3f309868babaca7c86dcb077c1';
   }
 
-  const args = [Token.address, wallet, proxyRegistry];
+  const args = [Token.address, wallet, signer, proxyRegistry];
   await deployer.deploy(Safe, ...args);
 };

@@ -31,33 +31,35 @@ contract WebMasonCoinSafe is
     bool public revealed = false;
     string private _notRevealedURI = "";
 
-    bool public burnAllowed = false;
-    address public immutable WMC;
-    uint256 private constant _wmcAmount = 200_000 * 10**18;
-
-    // WMC vesting parameters
-    uint256 private _initTime;
-    uint256 public vestingStart = 1669852800; // 2022-12-01T00:00:00.000Z
-    uint32 private constant _vesting = 5 * 12 * 30 * 24 * 60 * 60;
-
     // OpenSea
     address private _proxyRegistry;
 
     // Mint
-    address public signer; // TODO
-    address public immutable wallet; // TODO
+    address public immutable wallet;
+    address public signer;
     mapping(address => uint256) public mintNonce;
+
+    // WMC vesting parameters
+    uint256 private _initTime;
+    uint256 public vestingStart = 1669852800; // 2022-12-01T00:00:00.000Z
+    uint32 private constant _vesting = 5 * 12 * 30 * 24 * 60 * 60; // 60mo = 5y
+
+    address public immutable WMC;
+    uint256 private constant _wmcAmount = 200_000 * 10**18;
+
+    bool public burnAllowed = false;
 
     constructor(
         address token_,
         address wallet_,
+        address signer_,
         address proxyRegistry_
     ) ERC721A("WebMasonCoin Safe", "WMC-SAFE") {
         _initTime = block.timestamp;
 
         WMC = token_;
         wallet = wallet_;
-        signer = _msgSender();
+        signer = signer_;
         _proxyRegistry = proxyRegistry_;
     }
 

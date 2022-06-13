@@ -10,8 +10,8 @@ import "erc721a/contracts/extensions/IERC721ABurnable.sol";
 import "erc721a/contracts/extensions/ERC721AQueryable.sol";
 import "erc721a/contracts/extensions/ERC721AOwnersExplicit.sol";
 import "./utils/Recoverable.sol";
-import "./interfaces/IVesting.sol";
 import "./utils/ProxyRegistry.sol";
+import "./interfaces/INftStaking.sol";
 
 /// @custom:security-contact support@webmason.io
 contract WebMasonStalkerClan is
@@ -46,12 +46,10 @@ contract WebMasonStalkerClan is
     address public staking;
 
     constructor(
-        address token_,
         address wallet_,
         address signer_,
         address proxyRegistry_
     ) ERC721A("WebMason Stalker Clan", "WM-STALKER") {
-        WMC = token_;
         wallet = wallet_;
         signer = signer_;
         _proxyRegistry = proxyRegistry_;
@@ -192,10 +190,10 @@ contract WebMasonStalkerClan is
     }
 
     // Staking
-    function ownerOrStakerOf(uint256 tokenId) public pure returns (address) {
+    function ownerOrStakerOf(uint256 tokenId) public view returns (address) {
         address tokenOwner = ownerOf(tokenId);
         if (tokenOwner != staking) return tokenOwner;
-        return tokenOwner;
+        return INftStaking(staking).ownerOf(tokenId);
     }
 
     function setStaking(address newStaking) external onlyOwner {

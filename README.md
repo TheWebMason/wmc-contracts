@@ -19,6 +19,6 @@
   - Ethereum Ropsten Testnet [0xF78AE15e56d4f1aC5Ad6854B81CDf68DB93D0cc3](https://ropsten.etherscan.io/token/0xF78AE15e56d4f1aC5Ad6854B81CDf68DB93D0cc3).
 
 ## Deployed OpenSea Airdrop contracts
-  - Ethereum Mainnet [](https://rinkeby.etherscan.io/address/);
-  - Ethereum Rinkeby Testnet [](https://rinkeby.etherscan.io/address/);
-  - Ethereum Ropsten Testnet [](https://ropsten.etherscan.io/address/).
+  - Ethereum Mainnet [0x0B5262Fe2DFC06f54551f35B344738Ae878ff0b3](https://rinkeby.etherscan.io/address/0x0B5262Fe2DFC06f54551f35B344738Ae878ff0b3);
+  - Ethereum Rinkeby Testnet [0x0B5262Fe2DFC06f54551f35B344738Ae878ff0b3](https://rinkeby.etherscan.io/address/0x0B5262Fe2DFC06f54551f35B344738Ae878ff0b3);
+  - Ethereum Ropsten Testnet [0x0B5262Fe2DFC06f54551f35B344738Ae878ff0b3](https://ropsten.etherscan.io/address/0x0B5262Fe2DFC06f54551f35B344738Ae878ff0b3).

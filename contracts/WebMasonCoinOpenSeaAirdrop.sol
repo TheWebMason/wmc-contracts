@@ -9,8 +9,22 @@ import "./utils/Recoverable.sol";
 contract WebMasonCoinOpenSeaAirdrop is Ownable, Recoverable {
     address public immutable WMC;
 
+    // WMC vesting parameters
+    uint256 private _initTime;
+    uint256 public vestingStart = 1669852800; // 2022-12-01T00:00:00.000Z
+    uint32 private constant _vesting = 5 * 12 * 30 * 24 * 60 * 60; // 60mo = 5y
+
     constructor(address token_) {
+        _initTime = block.timestamp;
         WMC = token_;
+    }
+
+    function setVestingStart(uint256 newTime) external onlyOwner {
+        require(
+            newTime < vestingStart && newTime >= _initTime,
+            "The new time must be less than the old vesting start time"
+        );
+        vestingStart = newTime;
     }
 
     function _getRecoverableAmount(address token)
